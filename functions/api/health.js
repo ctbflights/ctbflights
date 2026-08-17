@@ -1,40 +1,64 @@
-const ENDPOINT = 'https://bexiueimgpsboxvdkdsy.supabase.co/functions/v1/flight-live-search';
-const KEY = 'sb_publishable_nAbaVeyWJxHE-bLpcyAvQg_0yGPmOIL';
+const ENDPOINT = 'https://ignav.com/api/fares/one-way';
 
-export async function onRequestGet() {
+export async function onRequestGet({ env }) {
   const startedAt = Date.now();
+  const headers = {'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
+
+  if (!env?.IGNAV_API_KEY) {
+    return new Response(JSON.stringify({
+      ok: false,
+      provider: 'ignav',
+      configured: false,
+      version: '1.1.5'
+    }), { status: 503, headers });
+  }
+
+  const tomorrow = new Date(Date.now() + 86400000);
+  const departureDate = tomorrow.toISOString().slice(0, 10);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
   try {
     const upstream = await fetch(ENDPOINT, {
       method: 'POST',
       headers: {
-        'content-type': 'application/json',
-        'apikey': KEY
+        'X-Api-Key': env.IGNAV_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
-        searches: [{
-          id: 'health-b2752-2026-09-07',
-          origin: 'URC',
-          destination: 'MSQ',
-          departure_date: '2026-09-07',
-          preferred_carrier: 'B2',
-          preferred_flight_number: 'B2752',
-          direct: true
-        }]
-      })
+        origin: 'PEK',
+        destination: 'PVG',
+        departure_date: departureDate,
+        adults: 1,
+        cabin_class: 'economy',
+        max_stops: 0,
+        market: 'CN'
+      }),
+      signal: controller.signal
     });
-    const text = await upstream.text();
-    return new Response(text, {
-      status: upstream.status,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'no-store',
-        'x-ctb-health-elapsed-ms': String(Date.now() - startedAt)
-      }
-    });
+    const data = await upstream.json().catch(() => ({}));
+    return new Response(JSON.stringify({
+      ok: upstream.ok,
+      provider: 'ignav',
+      configured: true,
+      upstream_status: upstream.status,
+      itinerary_count: Array.isArray(data?.itineraries) ? data.itineraries.length : null,
+      upstream_error: upstream.ok ? null : data?.error || null,
+      elapsed_ms: Date.now() - startedAt,
+      version: '1.1.5'
+    }), { status: upstream.ok ? 200 : 502, headers });
   } catch (error) {
-    return new Response(JSON.stringify({ok:false,error:String(error),elapsed_ms:Date.now()-startedAt}), {
-      status: 502,
-      headers: {'content-type':'application/json; charset=utf-8','cache-control':'no-store'}
-    });
+    return new Response(JSON.stringify({
+      ok:false,
+      provider:'ignav',
+      configured:true,
+      code:error?.name==='AbortError'?'ignav_timeout':'ignav_transport_failed',
+      error:error instanceof Error?error.message:String(error),
+      elapsed_ms:Date.now()-startedAt,
+      version:'1.1.5'
+    }), { status:502, headers });
+  } finally {
+    clearTimeout(timeout);
   }
 }
