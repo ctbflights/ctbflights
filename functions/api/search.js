@@ -49,6 +49,12 @@ function legMatches(leg, carrier, flightNumber) {
   return Array.isArray(leg?.segments) && leg.segments.some(segment => segmentMatches(segment, carrier, flightNumber));
 }
 
+function itineraryUsesCarrier(itinerary, carrier, legKey = 'outbound') {
+  const segments = itinerary?.[legKey]?.segments;
+  if (!Array.isArray(segments) || !segments.length) return false;
+  return segments.some(segment => String(segment?.marketing_carrier_code || '').toUpperCase() === carrier);
+}
+
 function sortItineraries(a, b) {
   const confidenceA = a?.price?.status === 'verified' ? 0 : 1;
   const confidenceB = b?.price?.status === 'verified' ? 0 : 1;
@@ -56,7 +62,7 @@ function sortItineraries(a, b) {
   return Number(a?.price?.amount ?? Infinity) - Number(b?.price?.amount ?? Infinity);
 }
 
-function normalizeOffer(itinerary) {
+function normalizeOffer(itinerary, matchKind = 'exact_schedule') {
   return {
     amount: Number(itinerary?.price?.amount),
     currency: String(itinerary?.price?.currency || '').toUpperCase(),
@@ -66,7 +72,8 @@ function normalizeOffer(itinerary) {
     requires_self_transfer: Boolean(itinerary?.requires_self_transfer),
     ignav_id: itinerary?.ignav_id || null,
     outbound: itinerary?.outbound || null,
-    inbound: itinerary?.inbound || null
+    inbound: itinerary?.inbound || null,
+    schedule_match: matchKind
   };
 }
 
@@ -214,28 +221,52 @@ async function executeSearch(search, apiKey, waitUntil) {
     };
   }
 
-  const itineraries = Array.isArray(upstream.data?.itineraries) ? upstream.data.itineraries : [];
-  const matches = itineraries.filter(itinerary => {
+  const itineraries = Array.isArray(upstream.data?.itineraries)
+    ? upstream.data.itineraries.filter(itinerary => Number.isFinite(Number(itinerary?.price?.amount)))
+    : [];
+
+  const exactMatches = itineraries.filter(itinerary => {
     if (!legMatches(itinerary?.outbound, item.carrier, item.flightNumber)) return false;
     if (item.returnDate && !legMatches(itinerary?.inbound, item.returnCarrier, item.returnFlightNumber)) return false;
     return true;
   }).sort(sortItineraries);
 
-  const offers = matches
-    .filter(itinerary => Number.isFinite(Number(itinerary?.price?.amount)))
-    .map(normalizeOffer);
+  let matchKind = 'exact_schedule';
+  let selected = exactMatches;
+
+  // Ignav already applies airlines_include before returning results. A fare can therefore be
+  // genuinely bookable for the requested carrier/date even when the API models a through-flight,
+  // codeshare, or connection with a different marketing flight number than our static timetable.
+  // Keep exact timetable matches first, but do not discard real carrier itineraries solely because
+  // the flight number differs. The frontend renders Ignav's actual segments/times in that case.
+  if (!selected.length && itineraries.length) {
+    const carrierAlternatives = itineraries.filter(itinerary => {
+      if (!itineraryUsesCarrier(itinerary, item.carrier, 'outbound')) return false;
+      if (item.returnDate && !itineraryUsesCarrier(itinerary, item.returnCarrier, 'inbound')) return false;
+      return true;
+    }).sort(sortItineraries);
+    if (carrierAlternatives.length) {
+      selected = carrierAlternatives;
+      matchKind = 'carrier_route';
+    }
+  }
+
+  const offers = selected.map(itinerary => normalizeOffer(itinerary, matchKind));
 
   return {
     id: item.id,
     ok: true,
-    code: offers.length ? null : (itineraries.length ? 'flight_not_found' : 'no_current_offer'),
+    code: offers.length ? null : (itineraries.length ? 'carrier_route_not_found' : 'no_current_offer'),
     provider: 'ignav',
     provider_mode: 'production',
     source_kind: 'ignav-current',
+    match_kind: offers.length ? matchKind : null,
     current_availability: offers.length ? true : null,
     availability_summary: offers.length
-      ? `${offers.length} 个匹配当前报价`
-      : 'Ignav 当前未返回匹配的可售报价',
+      ? (matchKind === 'exact_schedule'
+          ? `${offers.length} 个计划航班匹配当前报价`
+          : `${offers.length} 个同航司当前可售方案；实际航班号以 Ignav 返回为准`)
+      : 'Ignav 当前未返回可售报价',
     cache: upstream.cache,
     offers
   };
@@ -248,7 +279,7 @@ export async function onRequest({ request, env, waitUntil }) {
   if (!env?.IGNAV_API_KEY) {
     return json({
       ok: false,
-      version: 'ctbflights-api-1.1.5',
+      version: 'ctbflights-api-1.1.6',
       code: 'ignav_not_configured',
       error: 'IGNAV_API_KEY is not configured',
       results: []
@@ -272,12 +303,12 @@ export async function onRequest({ request, env, waitUntil }) {
 
   return json({
     ok: true,
-    version: 'ctbflights-api-1.1.5',
+    version: 'ctbflights-api-1.1.6',
     provider: 'ignav',
     elapsed_ms: Date.now() - startedAt,
     results
   }, 200, {
-    'x-ctb-backend': 'ignav-v1.1.5',
+    'x-ctb-backend': 'ignav-v1.1.6',
     'x-ctb-elapsed-ms': String(Date.now() - startedAt)
   });
 }
