@@ -6,7 +6,7 @@
     CA: {
       name: '中国国际航空股份有限公司',
       short: '中国国际航空',
-      logo: '/assets/logos/air-china-black.png'
+      logo: '/assets/logos/air-china-black.svg'
     },
     B2: {
       name: '白俄罗斯航空公司',
@@ -60,8 +60,6 @@
       fallback.hidden = false;
     };
 
-    // The Air China mark already contains AIR CHINA + Chinese calligraphy,
-    // so do not print a second company-name block beside it.
     const airlineText = img.closest('.airline-id')?.querySelector('.airline-text');
     if (airlineText) airlineText.classList.toggle('brand-text-hidden', carrier === 'CA');
   }
@@ -69,14 +67,11 @@
   function repairSummary(card) {
     const route = card.querySelector('.summary-route');
     if (!route) return;
-
     const oldBrand = route.querySelector('.summary-brand');
     const pill = oldBrand?.querySelector('.type-pill') || route.querySelector('.type-pill');
     const title = route.querySelector('h4');
     if (!title) return;
-
     oldBrand?.querySelectorAll('img').forEach(img => img.remove());
-
     let line = route.querySelector('.route-title-line');
     if (!line) {
       line = document.createElement('div');
@@ -121,9 +116,6 @@
     attributeFilter: ['src']
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scheduleRepair, { once: true });
-  } else {
-    scheduleRepair();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleRepair, { once: true });
+  else scheduleRepair();
 })();
