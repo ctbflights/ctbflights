@@ -64,7 +64,7 @@
           variant,variantKey:variant.key,direction,date,spec,
           from:ep.from,to:ep.to,fromCity:ep.fromCity,toCity:ep.toCity,
           routeLabel:routeLabel(variant,direction),
-          sourceKind:null,currentAvailable:null,availabilitySummary:null,
+          sourceKind:null,provider:null,providerMode:null,currentAvailable:null,availabilitySummary:null,
           offers:[],bestOffer:null,priceCny:null,errorCode:null
         });
       }
@@ -94,25 +94,44 @@
     return FALLBACK_BYN_CNY;
   }
 
-  function clearPrice(leg,code=null){
-    leg.sourceKind=null;leg.currentAvailable=null;leg.availabilitySummary=null;
+  function clearPrice(leg,code=null,sourceKind=null,provider=null,providerMode=null){
+    leg.sourceKind=sourceKind;leg.provider=provider;leg.providerMode=providerMode;
+    leg.currentAvailable=null;leg.availabilitySummary=null;
     leg.offers=[];leg.bestOffer=null;leg.priceCny=null;leg.errorCode=code;
   }
 
   function applyResult(leg,result){
     leg.errorCode=result?.code||result?.error||null;
+    leg.sourceKind=result?.source_kind||null;
+    leg.provider=result?.provider||null;
+    leg.providerMode=result?.provider_mode||null;
     leg.currentAvailable=result?.current_availability??null;
     leg.availabilitySummary=result?.availability_summary||null;
     const offers=Array.isArray(result?.offers)
       ? result.offers.filter(o=>Number.isFinite(Number(o?.amount))).sort((a,b)=>Number(a.amount)-Number(b.amount))
       : [];
-    if(!offers.length){ clearPrice(leg,leg.errorCode); return; }
-    leg.sourceKind='official-current';
+
+    if(!offers.length){
+      leg.offers=[];leg.bestOffer=null;leg.priceCny=null;
+      return;
+    }
+
+    // Never present Amadeus TEST cache as a current/live fare on the public site.
+    if(leg.sourceKind==='gds-test'){
+      leg.offers=[];leg.bestOffer=null;leg.priceCny=null;leg.currentAvailable=null;
+      leg.errorCode='provider_test_mode';
+      return;
+    }
+
     leg.offers=offers;
     leg.bestOffer=offers[0];
     leg.currentAvailable=true;
+    const explicitCny=Number(leg.bestOffer.cny_amount);
     const currency=String(leg.bestOffer.currency||'').toUpperCase();
-    leg.priceCny=currency==='BYN' ? Number(leg.bestOffer.amount)*state.rate : Number(leg.bestOffer.amount);
+    if(Number.isFinite(explicitCny)) leg.priceCny=explicitCny;
+    else if(currency==='CNY') leg.priceCny=Number(leg.bestOffer.amount);
+    else if(currency==='BYN') leg.priceCny=Number(leg.bestOffer.amount)*state.rate;
+    else leg.priceCny=null;
   }
 
   async function queryLegs(legs){
@@ -139,10 +158,16 @@
       done+=chunk.length;
       renderProgress();
     }
-    const live=legs.filter(x=>x.sourceKind==='official-current'&&x.bestOffer).length;
+    const live=legs.filter(x=>x.sourceKind==='gds-current'&&x.bestOffer).length;
+    const unconfigured=legs.filter(x=>x.errorCode==='provider_not_configured').length;
+    const testMode=legs.filter(x=>x.errorCode==='provider_test_mode').length;
     $('queryStatus').textContent=live
-      ? `查询完成 · ${live} 个航段返回当前价格`
-      : '查询完成 · 当前未获得可显示的实时报价';
+      ? `查询完成 · ${live} 个航段返回实时 GDS 票价`
+      : unconfigured===legs.length
+        ? '实时票价接口已准备完成 · 等待配置 Amadeus Production 凭据'
+        : testMode>0
+          ? 'Amadeus 测试接口已连通 · 测试缓存价不会作为实时价格展示'
+          : '查询完成 · 当前实时数据源未返回可售报价';
   }
 
   function buildItems(){
@@ -158,15 +183,18 @@
   }
 
   function statusFor(leg){
-    if(leg.bestOffer) return {text:'当前价格',className:'live'};
-    if(leg.variant.airline==='CA') return {text:'国航实时价格暂未接入',className:'muted'};
-    if(leg.errorCode==='no_current_offer') return {text:'暂无当前报价',className:'muted'};
-    return {text:'实时查询暂时失败',className:'muted'};
+    if(leg.bestOffer && leg.sourceKind==='gds-current') return {text:'实时 GDS 票价',className:'live'};
+    if(leg.errorCode==='provider_not_configured') return {text:'实时票价源待配置',className:'muted'};
+    if(leg.errorCode==='provider_test_mode') return {text:'测试接口已连通（非实时价）',className:'muted'};
+    if(leg.errorCode==='no_current_offer') return {text:'暂无当前可售报价',className:'muted'};
+    if(leg.errorCode==='flight_not_found') return {text:'实时数据源未找到该航班',className:'muted'};
+    if(['amadeus_auth_failed','amadeus_search_failed','amadeus_transport_failed'].includes(leg.errorCode)) return {text:'实时票价源暂时不可用',className:'muted'};
+    return {text:'暂未获得实时报价',className:'muted'};
   }
 
   function baggageHtml(leg){
     const opts=Array.isArray(leg.bestOffer?.baggage_options)?leg.bestOffer.baggage_options:[];
-    const hits=opts.filter(x=>/baggage|luggage|bag|багаж/i.test(JSON.stringify(x))).slice(0,8);
+    const hits=opts.filter(x=>/baggage|luggage|bag|багаж|行李/i.test(JSON.stringify(x))).slice(0,8);
     if(hits.length) return hits.map(x=>[x.title,x.shortDescription,x.description,x.value,x.size].filter(Boolean).map(esc).join(' · ')).join('<br>');
     return esc(AIRLINES[leg.variant.airline].baggage);
   }
@@ -174,14 +202,15 @@
   function fareBox(leg){
     const offer=leg.bestOffer;
     if(!offer){
-      const msg=leg.variant.airline==='CA'?'国航实时价格暂未接入。':'本次实时查询没有返回当前可售报价。';
+      const msg=statusFor(leg).text;
       return `<div class="fare-box"><div class="fare-title">价格信息</div><div class="fare-row"><span>当前结果</span><strong>${esc(msg)}</strong></div></div>`;
     }
     const rows=[
       ['当前最低票价',originalMoney(offer.amount,offer.currency)],
+      ['数据来源',leg.sourceKind==='gds-current'?'Amadeus Flight Offers · 实时 GDS':'实时票价源'],
       ['票价档 / 舱等',[offer.bundle,offer.service_class].filter(Boolean).join(' · ')||'—'],
       ['订座舱位',offer.booking_class||'—'],
-      ['当前余票',Number.isFinite(Number(offer.available_seats))?`${offer.available_seats} 席`:'官网未返回具体数字'],
+      ['当前可订',Number.isFinite(Number(offer.available_seats))?`最多 ${offer.available_seats} 席`:'实时源未返回具体数字'],
       ['基础票价',Number.isFinite(Number(offer.tax_detail?.base_amount))?originalMoney(offer.tax_detail.base_amount,offer.tax_detail.currency||offer.currency):'—'],
       ['税费',Number.isFinite(Number(offer.tax_detail?.taxes_amount))?originalMoney(offer.tax_detail.taxes_amount,offer.tax_detail.currency||offer.currency):'—']
     ];
