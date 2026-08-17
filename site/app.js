@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.26';
+  const VERSION = '1.0.28';
   const API_URL = '/api/search';
   const FALLBACK_BYN_CNY = 2.22;
 
@@ -10,7 +10,7 @@
       name: '中国国际航空股份有限公司',
       english: 'Air China Limited',
       short: '中国国际航空',
-      logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Air_China_wordmark.svg/500px-Air_China_wordmark.svg.png',
+      logo: '/assets/logos/air-china-black.svg',
       official: 'https://www.airchina.com.cn/zh-CN',
       baggage: '国际航线免费行李额和额外行李收费以当前客票票价品牌及国航出票页面为准。'
     },
@@ -18,7 +18,7 @@
       name: '白俄罗斯航空公司',
       english: 'Belavia Belarusian Airlines',
       short: '白俄罗斯航空',
-      logo: 'https://webapi.belavia.by/guideStatic/images/carrier/logotype/5830-347fc5d42a1f77f89665a10b8d0d235a.svg',
+      logo: '/assets/logos/belavia.svg',
       official: 'https://en.belavia.by/booking/',
       baggage: '白航行李额度按本次官网票价档返回数据优先显示。'
     }
@@ -320,7 +320,7 @@
     searchButton.disabled=true;
     searchButtonText.textContent='正在查询中…';
     results.classList.remove('hidden');
-    flightList.innerHTML='<div class="loading-card"><div class="spinner"></div><strong>正在查询航空公司当前价格…</strong><small>白航通过 CTB Flights 独立 Cloudflare Function 查询；请稍候。</small></div>';
+    flightList.innerHTML='<div class="loading-card"><div class="spinner"></div><strong>正在查询航空公司当前价格…</strong><small>白航通过 CTB Flights 同源 API 转发至独立 Supabase 后端查询；请稍候。</small></div>';
     calendarList.innerHTML='';
     const groups=selectedGroups();
     state.outbound=buildLegs(state.direction,startDate.value,endDate.value,groups);
