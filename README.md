@@ -7,17 +7,18 @@
 - `site/`：Cloudflare Pages 静态前端
 - `site/assets/logos/`：项目本地航空公司品牌资源
 - `site/brand.js` / `site/brand.css`：航空公司品牌渲染与布局
-- `site/stability.js`：仅针对白航临时接口失败的前端单次重试层
-- `functions/api/search.js`：Cloudflare Pages Functions 实时查询入口
+- `site/stability-v1.0.25.js`：白航单航班隔离查询与临时错误重试层
+- `functions/api/search.js`：Cloudflare Pages Functions 白航官网 GraphQL 查询入口
 
-## v1.0.24
+## v1.0.25
 
-- 中国国际航空使用用户提供的正式品牌图作为唯一源图；浏览器本地 Canvas 自动去除深色背景、保留红色凤凰并将白色英文/中文题字渲染为深色字，适配浅色卡片。
-- 紧凑结果行不再重复显示航空公司 Logo；“直飞航班 / 经停中转”标签与航线标题同行显示。
-- 白俄罗斯航空查询恢复短轮询模型，并保留 `B2-752` / `B2752` 航班号统一匹配。
-- 航班先返回、价格稍后返回时只额外等待少量轮询，不再重建 Search ID，避免长耗时导致整批 Pages Function 超时。
-- 并发限制为 2；只有明确的临时查询错误才由浏览器重试一次，不把“没有当前报价”误判为连接失败。
-- 国航实时价格接口尚未独立接通时，不伪造当前票价。
+- 修正上一版部署错误：稳定查询脚本现在由 `index.html` 明确加载，不再出现“代码已提交但线上根本没执行”的情况。
+- 白俄罗斯航空从“整批航班共用一次 Pages Function 请求”改为“每个航班日期单独请求”，浏览器最多同时发起 2 个白航查询；单条失败不会拖累整批。
+- 明确的临时错误只针对该航班自动重试一次；官网没有返回当前报价时不会伪造成“有票”。
+- 保留官网 RunSearch → SearchResults、X-Token、Cookie、BYN 原币价、税费、舱位与行李票价档解析。
+- 国航使用用户确认的红色凤凰 + 黑色 AIR CHINA + 黑色中文题字透明品牌图，资源完全存放在 CTB Flights 自己仓库。
+- 紧凑结果行不显示多余航空公司 Logo；“直飞航班 / 经停中转”标签与航线标题同行。
+- 国航实时价格源尚未可靠接通前不伪造当前价格。
 
 ## 部署
 
@@ -29,8 +30,8 @@ Cloudflare Pages：
 - Build output directory: `site`
 - Root directory: 留空
 
-Pages Functions 会自动从仓库根目录的 `functions/` 部署，因此前端只请求同源 `/api/search`，不依赖食光项目、Supabase 或旧 Worker。
+Pages Functions 自动从仓库根目录的 `functions/` 部署。CTB Flights 不依赖食光项目、食光 Supabase 或旧食光 Worker。
 
 ## 版本
 
-当前：`v1.0.24`
+当前：`v1.0.25`
