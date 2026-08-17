@@ -7,19 +7,22 @@
 - `site/`：Cloudflare Pages 静态前端
 - `site/assets/logos/`：项目本地航空公司品牌资源
 - `site/brand.js` / `site/brand.css`：航空公司品牌渲染与布局
-- `site/backend-v1.0.27.js`：前端查询路由层；将白航请求送往 CTB Flights 专属 Supabase Edge Function
-- `functions/api/search.js`：Cloudflare Pages Function 备用实现；v1.0.27 起不作为白航主查询出口
+- `functions/api/search.js`：浏览器同源 `/api/search` 入口，只负责把查询安全转发到 CTB Flights 专属 Supabase Edge Function
 - Supabase 项目 `ctbflights` (`bexiueimgpsboxvdkdsy`)：独立白航实时查询后端
 - Edge Function `flight-live-search`：Belavia RunSearch → SearchResults、X-Token、Cookie、BYN 票价、税费、舱位与行李票价档解析
 
-## v1.0.27
+## v1.0.28
 
-- 新建完全独立的 Supabase 项目 `ctbflights`，区域 `eu-central-1`，不复用食光 Supabase。
-- 白俄罗斯航空实时查询主链路从 Cloudflare Pages Function 切换到 CTB Flights 专属 Supabase Edge Function。
-- 每个白航日期继续独立查询，浏览器最多并发 2 个；明确的临时错误只针对该航班重试一次。
+- 修复浏览器直连 Supabase 时 CORS 预检 `OPTIONS 500` 导致真正 POST 根本无法发出的故障。
+- 浏览器不再跨域直连 Supabase；统一请求同源 `/api/search`。
+- Cloudflare Pages Function 不再直接访问白航官网，只负责把查询转发到 CTB Flights 专属 Supabase Edge Function。
+- Supabase Edge Function 继续保持 JWT 校验开启。
+- 删除 `site/backend-v1.0.27.js` 浏览器 fetch 拦截层，避免重复路由与 CORS 问题。
+- `index.html`、`app.js`、`brand.js` 版本统一为 `v1.0.28`。
+- 国航和白航默认 Logo 均使用项目本地资源。
 - 前端只接受本次实时查询返回的当前报价；不使用任何历史价格、人工核验价格或静态价格兜底。
 - 国航实时价格源尚未可靠接通前不伪造当前价格。
-- Cloudflare Pages 只负责前端展示与部署；食光项目、食光 Supabase 和旧食光 Worker 均不参与 CTB Flights 当前查询链路。
+- 食光项目、食光 Supabase 和旧食光 Worker 均不参与 CTB Flights 当前查询链路。
 
 ## Cloudflare Pages 部署
 
@@ -31,4 +34,4 @@
 
 ## 版本
 
-当前：`v1.0.27`
+当前：`v1.0.28`
