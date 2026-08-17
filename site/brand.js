@@ -1,12 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.23';
+  const VERSION = '1.0.25';
   const BRANDS = {
     CA: {
       name: '中国国际航空股份有限公司',
       short: '中国国际航空',
-      logo: '/assets/logos/air-china-user.png'
+      logo: '/assets/logos/air-china-black.png'
     },
     B2: {
       name: '白俄罗斯航空公司',
@@ -19,7 +19,7 @@
     const card = el.closest('.flight-card, .leg-block') || el.parentElement;
     const text = card?.textContent || '';
     if (/\bCA\d{3,4}\b/.test(text) || text.includes('中国国际航空')) return 'CA';
-    if (/\bB2\d{3,4}\b/.test(text) || text.includes('白俄罗斯航空')) return 'B2';
+    if (/\bB2[-\s]?\d{3,4}\b/.test(text) || text.includes('白俄罗斯航空')) return 'B2';
     return null;
   }
 
@@ -44,7 +44,7 @@
     img.dataset.ctbCarrier = carrier;
     img.alt = `${brand.name} Logo`;
     img.referrerPolicy = 'no-referrer';
-    img.classList.add('ctb-local-logo', `ctb-logo-${carrier.toLowerCase()}`);
+    img.classList.add('ctb-brand-logo', `ctb-logo-${carrier.toLowerCase()}`);
 
     const expected = new URL(brand.logo, location.origin).href;
     if (img.src !== expected) img.src = brand.logo;
@@ -60,6 +60,8 @@
       fallback.hidden = false;
     };
 
+    // The Air China mark already contains AIR CHINA + Chinese calligraphy,
+    // so do not print a second company-name block beside it.
     const airlineText = img.closest('.airline-id')?.querySelector('.airline-text');
     if (airlineText) airlineText.classList.toggle('brand-text-hidden', carrier === 'CA');
   }
