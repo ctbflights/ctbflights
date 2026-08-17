@@ -267,7 +267,7 @@
     const from=first?.departure_airport||leg.from;
     const to=last?.arrival_airport||leg.to;
     const duration=live?.duration_minutes||leg.spec.duration;
-    const connectionCount=Math.max(0,segs.length-1);
+    const connectionCount=segs.length?Math.max(0,segs.length-1):(leg.variant.direct?0:1);
     const aircraft=[...new Set(segs.map(s=>s.aircraft).filter(Boolean))].join(' + ')||leg.spec.aircraft;
     const logo=airline.logo?`<img class="detail-logo carrier-${esc(airline.code.toLowerCase())}" src="${airline.logo}" alt="${esc(airline.short)}">`:'';
 
