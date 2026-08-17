@@ -34,7 +34,10 @@ function cleanCabin(value) {
 }
 
 function normalizeFlightNumber(value) {
-  return String(value || '').trim().toUpperCase().replace(/^([A-Z0-9]{2})/, '').replace(/^0+/, '') || '0';
+  const text = String(value || '').trim().toUpperCase();
+  const prefixed = text.match(/^[A-Z][A-Z0-9](\d+)$/);
+  const digits = prefixed ? prefixed[1] : text.replace(/\D/g, '');
+  return digits.replace(/^0+/, '') || '0';
 }
 
 function segmentMatches(segment, carrier, flightNumber) {
@@ -76,7 +79,7 @@ async function sha256(text) {
 async function fetchIgnav(path, payload, apiKey, waitUntil) {
   const cachePayload = JSON.stringify({ path, payload });
   const keyHash = await sha256(cachePayload);
-  const cacheKey = new Request(`https://ctbflights.internal/ignav-cache/${keyHash}`, { method: 'GET' });
+  const cacheKey = new Request(`https://ctbflights.pages.dev/__ignav_cache/${keyHash}`, { method: 'GET' });
   const cache = caches.default;
   const cached = await cache.match(cacheKey);
   if (cached) {
@@ -106,7 +109,9 @@ async function fetchIgnav(path, payload, apiKey, waitUntil) {
           'cache-control': `public, max-age=${CACHE_TTL_SECONDS}`
         }
       });
-      waitUntil(cache.put(cacheKey, cacheResponse));
+      const put = cache.put(cacheKey, cacheResponse);
+      if (typeof waitUntil === 'function') waitUntil(put);
+      else await put;
     }
 
     return { ok: response.ok, status: response.status, data, cache: 'MISS' };
