@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#f4f7fb">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>CTB Flights</title>
-  <link rel="stylesheet" href="./styles.css?v=1.1.4">
+  <link rel="stylesheet" href="./styles.css?v=1.1.5">
+  <link rel="stylesheet" href="./ignav.css?v=1.1.5">
 </head>
 <body data-page="home">
   <header class="site-header">
@@ -31,9 +32,9 @@
       <div class="hero-copy">
         <span class="eyebrow">专供白俄罗斯留学生</span>
         <h1>在一段时间里，<br>找到真正合适的航班。</h1>
-        <p>选择一段出行时间，我们会比较这一时间范围内中国至白俄罗斯的计划航班，并查询当前可获取的实时票价。人民币作为主显示货币，同时保留实时票价源返回的原始信息。</p>
+        <p>选择一段出行时间，我们会比较这一时间范围内中国至白俄罗斯的计划航班，并通过 Ignav 查询当前票价、航班段、行李信息和可用购买入口。</p>
         <div class="hero-points">
-          <span>时间段比价</span><span>直飞 / 经停</span><span>实时 GDS 票价</span>
+          <span>时间段比价</span><span>单程 / 往返</span><span>Ignav 当前票价</span><span>航司官网购买</span>
         </div>
       </div>
 
@@ -66,6 +67,16 @@
           </div>
         </div>
 
+        <div class="form-section">
+          <div class="field-head"><strong>乘客与舱位</strong><span class="field-hint">最多 9 人</span></div>
+          <div class="travel-grid">
+            <label><span>成人</span><input id="adultsInput" type="number" min="1" max="9" step="1" value="1"></label>
+            <label><span>儿童</span><input id="childrenInput" type="number" min="0" max="8" step="1" value="0"></label>
+            <label><span>舱位</span><select id="cabinSelect"><option value="economy">经济舱</option><option value="premium_economy">超级经济舱</option><option value="business">商务舱</option><option value="first">头等舱</option></select></label>
+            <label><span>经停</span><select id="stopsSelect"><option value="any">不限</option><option value="0">仅直飞</option><option value="1">最多 1 次</option></select></label>
+          </div>
+        </div>
+
         <div class="form-section city-section">
           <div class="field-head"><strong>比较哪些中国城市？</strong><button id="toggleAll" class="link-button" type="button">取消全选</button></div>
           <div id="cityGrid" class="city-grid"></div>
@@ -74,15 +85,15 @@
         <button id="searchButton" class="primary-search" type="button">
           <span id="searchButtonText">搜索时间段内的航班</span><span>→</span>
         </button>
-        <p class="search-note">只显示本次实时数据源返回的当前报价；没有实时结果时不使用历史价格或人工价格兜底。</p>
+        <p class="search-note">价格由 Ignav 当前查询返回。已核验价格会明确标注；未核验金额只作为参考，最终以航空公司或 OTA 购买页为准。没有当前结果时不使用历史价格兜底。</p>
       </section>
     </section>
   </main>
 
   <footer class="site-footer"><span>CTB Flights · 白俄留学生机票比价</span><span data-version></span></footer>
 
-  <script src="./js/flight-data.js?v=1.1.4" defer></script>
-  <script src="./js/home.js?v=1.1.4" defer></script>
-  <script src="./js/version.js?v=1.1.4" defer></script>
+  <script src="./js/flight-data.js?v=1.1.5" defer></script>
+  <script src="./js/home.js?v=1.1.5" defer></script>
+  <script src="./js/version.js?v=1.1.5" defer></script>
 </body>
 </html>
