@@ -55,7 +55,10 @@ const JSON_HEADERS = {
 };
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const normFlight = value => String(value || '').toUpperCase().replace(/\s+/g, '').replace(/^B2/, '');
+const normFlight = value => String(value || '')
+  .toUpperCase()
+  .replace(/[^A-Z0-9]/g, '')
+  .replace(/^B2/, '');
 
 function cookieOnly(setCookie) {
   if (!setCookie) return '';
@@ -123,56 +126,64 @@ function validItem(item) {
     /^\d{4}-\d{2}-\d{2}$/.test(String(item.departure_date || ''));
 }
 
-async function runBelavia(item) {
-  const created = await gql({
+function allLegs(searchResult) {
+  return (searchResult?.flightDirections || [])
+    .flatMap(direction => Array.isArray(direction?.legs) ? direction.legs : []);
+}
+
+function pricedCount(searchResult) {
+  let count = 0;
+  for (const leg of allLegs(searchResult)) {
+    for (const group of leg?.pricesForFareGroups || []) {
+      count += Array.isArray(group?.prices) ? group.prices.length : 0;
+    }
+  }
+  return count;
+}
+
+async function createSearch(item) {
+  return gql({
     operationName: 'RunSearch',
     query: RUN_SEARCH,
     variables: { params: searchParams(item) }
   });
+}
 
-  const searchId = created.data?.data?.RunGeneralSearch?.id;
-  if (!created.ok || !searchId) {
-    return {
-      id: item.id,
-      ok: false,
-      provider: 'belavia-official',
-      code: 'run_search_failed',
-      status: created.status,
-      errors: created.data?.errors || []
-    };
-  }
+async function pollSearch(searchId, token, cookie) {
+  let latest = null;
+  let latestToken = token;
+  let latestCookie = cookie;
 
-  let token = created.token;
-  let cookie = created.cookie;
-  let searchResult = null;
+  for (let i = 0; i < 16; i++) {
+    if (i) await sleep(i < 8 ? 500 : 750);
 
-  for (let i = 0; i < 10; i++) {
-    if (i) await sleep(450);
     const result = await gql({
       operationName: 'SearchResults',
       query: SEARCH_RESULTS,
       variables: { id: String(searchId) }
-    }, token, cookie);
+    }, latestToken, latestCookie);
 
-    token = result.token;
-    cookie = result.cookie;
-    searchResult = result.data?.data?.SearchResult || null;
+    latestToken = result.token;
+    latestCookie = result.cookie;
+    latest = result.data?.data?.SearchResult || latest;
 
-    const legs = (searchResult?.flightDirections || []).flatMap(direction => Array.isArray(direction?.legs) ? direction.legs : []);
-    if (legs.length) break;
+    // Belavia can return the schedule before the fare groups are populated.
+    // Do not stop at the first leg; wait until pricing arrives.
+    if (latest && pricedCount(latest) > 0) break;
   }
 
-  if (!searchResult) {
-    return { id: item.id, ok: false, provider: 'belavia-official', code: 'search_results_missing' };
-  }
+  return { searchResult: latest, token: latestToken, cookie: latestCookie };
+}
 
+function parseOffers(item, searchResult) {
   const wantedFlight = normFlight(item.preferred_flight_number);
-  const fareMap = new Map((searchResult.fares || []).map(fare => [String(fare.id), fare]));
+  const fareMap = new Map((searchResult?.fares || []).map(fare => [String(fare.id), fare]));
   const offers = [];
+  let matchingLegs = 0;
 
-  for (const direction of searchResult.flightDirections || []) {
-    for (const leg of direction.legs || []) {
-      const segments = (leg.segments || []).map(x => x?.segment).filter(Boolean);
+  for (const direction of searchResult?.flightDirections || []) {
+    for (const leg of direction?.legs || []) {
+      const segments = (leg?.segments || []).map(x => x?.segment).filter(Boolean);
       if (!segments.length) continue;
 
       const first = segments[0];
@@ -181,9 +192,12 @@ async function runBelavia(item) {
       if (item.direct !== false && segments.length !== 1) continue;
       if (wantedFlight && !segments.some(segment => normFlight(segment?.flightNumber) === wantedFlight)) continue;
 
-      const seats = Number.isFinite(Number(first?.lowestPriceClassSeatsLeft)) ? Number(first.lowestPriceClassSeatsLeft) : null;
+      matchingLegs++;
+      const seats = Number.isFinite(Number(first?.lowestPriceClassSeatsLeft))
+        ? Number(first.lowestPriceClassSeatsLeft)
+        : null;
 
-      for (const group of leg.pricesForFareGroups || []) {
+      for (const group of leg?.pricesForFareGroups || []) {
         const family = group?.fareFamily || {};
         for (const priceItem of group?.prices || []) {
           const amount = Number(priceItem?.price?.amount);
@@ -204,7 +218,7 @@ async function runBelavia(item) {
             airline_name: family?.airline?.name || 'Belavia Belarusian Airlines',
             airline_iata: family?.airline?.iata || 'B2',
             airline_icon: family?.airline?.icon || null,
-            airline_logo: family?.airline?.logo?.fullUrl || null,
+            airline_logo: null,
             baggage_options: Array.isArray(family?.options) ? family.options : [],
             tax_detail: {
               base_amount: Number.isFinite(Number(passengerFare?.baseFare?.amount)) ? Number(passengerFare.baseFare.amount) : null,
@@ -219,23 +233,75 @@ async function runBelavia(item) {
     }
   }
 
-  const businessOnly = offers.length > 0 && offers.every(offer => /business/i.test(String(offer.service_class || offer.bundle || '')));
+  return { offers, matchingLegs };
+}
+
+async function runBelavia(item) {
+  let lastFailure = null;
+
+  // A fresh search ID retry is important because the Belavia search job can occasionally stall.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await sleep(400);
+
+    const created = await createSearch(item);
+    const searchId = created.data?.data?.RunGeneralSearch?.id;
+    if (!created.ok || !searchId) {
+      lastFailure = {
+        code: 'run_search_failed',
+        status: created.status,
+        errors: created.data?.errors || []
+      };
+      continue;
+    }
+
+    const polled = await pollSearch(searchId, created.token, created.cookie);
+    const searchResult = polled.searchResult;
+    if (!searchResult || !allLegs(searchResult).length) {
+      lastFailure = { code: 'search_results_not_ready', search_id: String(searchId) };
+      continue;
+    }
+
+    const parsed = parseOffers(item, searchResult);
+
+    // If the requested flight exists but prices have not populated yet, retry with a new search ID.
+    if (parsed.matchingLegs > 0 && !parsed.offers.length && attempt === 0) {
+      lastFailure = { code: 'matching_flight_price_not_ready', search_id: String(searchId) };
+      continue;
+    }
+
+    const businessOnly = parsed.offers.length > 0 && parsed.offers.every(offer =>
+      /business/i.test(String(offer.service_class || offer.bundle || ''))
+    );
+
+    return {
+      id: item.id,
+      ok: true,
+      provider: 'belavia-official',
+      source_kind: 'official-current',
+      current_availability: parsed.offers.length > 0,
+      availability_summary: parsed.offers.length
+        ? (businessOnly ? 'business_only' : 'current_offer_available')
+        : 'no_current_offer',
+      offers: parsed.offers,
+      search_id: String(searchId),
+      matching_legs: parsed.matchingLegs,
+      checked_at: new Date().toISOString()
+    };
+  }
 
   return {
     id: item.id,
-    ok: true,
+    ok: false,
     provider: 'belavia-official',
-    source_kind: 'official-current',
-    current_availability: offers.length > 0,
-    availability_summary: offers.length ? (businessOnly ? 'business_only' : 'current_offer_available') : 'no_current_offer',
-    offers,
-    search_id: String(searchId),
-    checked_at: new Date().toISOString()
+    current_availability: null,
+    offers: [],
+    ...(lastFailure || { code: 'belavia_query_failed' })
   };
 }
 
 async function runOne(item) {
   if (!validItem(item)) return { id: item?.id || null, ok: false, code: 'invalid_search_item' };
+
   if (String(item.preferred_carrier || '').toUpperCase() !== 'B2') {
     return {
       id: item.id,
@@ -246,32 +312,8 @@ async function runOne(item) {
       offers: []
     };
   }
+
   return runBelavia(item);
-}
-
-async function pooled(items, concurrency = 3) {
-  const results = new Array(items.length);
-  let cursor = 0;
-
-  async function worker() {
-    while (true) {
-      const index = cursor++;
-      if (index >= items.length) return;
-      try { results[index] = await runOne(items[index]); }
-      catch (error) {
-        results[index] = {
-          id: items[index]?.id || null,
-          ok: false,
-          provider: 'ctbflights',
-          code: 'function_error',
-          error: error instanceof Error ? error.message : String(error)
-        };
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
-  return results;
 }
 
 export async function onRequest(context) {
@@ -289,10 +331,27 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'searches must contain 1-8 items' }), { status: 400, headers: JSON_HEADERS });
   }
 
-  const results = await pooled(searches, 3);
+  // Belavia is much more reliable when searches are run sequentially.
+  // Parallel search IDs were causing intermittent missing September fares.
+  const results = [];
+  for (const item of searches) {
+    try {
+      results.push(await runOne(item));
+    } catch (error) {
+      results.push({
+        id: item?.id || null,
+        ok: false,
+        provider: 'ctbflights',
+        code: 'function_error',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+    if (String(item?.preferred_carrier || '').toUpperCase() === 'B2') await sleep(120);
+  }
+
   return new Response(JSON.stringify({
     ok: true,
-    version: 'ctbflights-api-1.0.19',
+    version: 'ctbflights-api-1.0.22',
     queried_at: new Date().toISOString(),
     results
   }), { headers: JSON_HEADERS });
