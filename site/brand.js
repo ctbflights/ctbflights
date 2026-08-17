@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.22';
+  const VERSION = '1.0.23';
   const BRANDS = {
     CA: {
       name: '中国国际航空股份有限公司',
