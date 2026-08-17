@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#f4f7fb">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>CTB Flights · 时间段航班价格比较</title>
-  <link rel="stylesheet" href="./styles.css?v=1.1.4">
+  <link rel="stylesheet" href="./styles.css?v=1.1.5">
+  <link rel="stylesheet" href="./ignav.css?v=1.1.5">
 </head>
 <body data-page="results">
   <header class="site-header">
@@ -31,7 +32,7 @@
         <a id="editSearch" class="secondary-button" href="./index.html">修改搜索</a>
         <label class="sort-control">排序
           <select id="sortSelect">
-            <option value="price">人民币价格最低</option>
+            <option value="price">可靠价格优先</option>
             <option value="date">出发日期最早</option>
             <option value="duration">总时长最短</option>
           </select>
@@ -39,7 +40,7 @@
       </div>
     </section>
 
-    <div id="queryStatus" class="query-status"><span class="status-dot"></span>正在准备查询…</div>
+    <div id="queryStatus" class="query-status"><span class="status-dot"></span>正在准备 Ignav 查询…</div>
 
     <section class="comparison-grid">
       <aside id="calendarPanel" class="panel calendar-panel">
@@ -53,7 +54,7 @@
           <span id="resultCount" class="result-count">—</span>
         </div>
         <div id="flightList" class="flight-list">
-          <div class="loading-card"><div class="spinner"></div><strong>正在查询当前实时票价…</strong><small>CTB Flights 会逐批返回结果；单个航班查询失败不会拖累整个时间段。</small></div>
+          <div class="loading-card"><div class="spinner"></div><strong>正在查询 Ignav 当前票价…</strong><small>单程使用 one-way；往返使用 round-trip，不再简单把两个单程价格相加。</small></div>
         </div>
       </section>
     </section>
@@ -61,8 +62,8 @@
 
   <footer class="site-footer"><span>CTB Flights · 白俄留学生机票比价</span><span data-version></span></footer>
 
-  <script src="./js/flight-data.js?v=1.1.4" defer></script>
-  <script src="./js/results.js?v=1.1.4" defer></script>
-  <script src="./js/version.js?v=1.1.4" defer></script>
+  <script src="./js/flight-data.js?v=1.1.5" defer></script>
+  <script src="./js/results.js?v=1.1.5" defer></script>
+  <script src="./js/version.js?v=1.1.5" defer></script>
 </body>
 </html>
