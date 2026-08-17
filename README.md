@@ -13,7 +13,7 @@ Cloudflare Pages：
 
 - Production branch: `main`
 - Framework preset: `None`
-- Build command: 留空
+- Build command: `exit 0`
 - Build output directory: `site`
 - Root directory: 留空
 
