@@ -7,15 +7,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>CTB Flights · 白俄留学生机票比价 · v1.0.25</title>
-  <link rel="stylesheet" href="./styles.css?v=1.0.25" />
-  <link rel="stylesheet" href="./brand.css?v=1.0.25" />
+  <title>CTB Flights · 白俄留学生机票比价 · v1.0.26</title>
+  <link rel="stylesheet" href="./styles.css?v=1.0.26" />
+  <link rel="stylesheet" href="./brand.css?v=1.0.26" />
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
       <div class="brand"><span class="brand-icon" aria-hidden="true">✈</span><span><strong>CTB Flights</strong><small>China ⇄ Belarus · Student Flight Compare</small></span></div>
-      <span class="version">v1.0.25</span>
+      <span class="version">v1.0.26</span>
     </header>
 
     <main>
@@ -61,7 +61,7 @@
 
           <button id="searchButton" class="search-btn" type="button"><span id="searchButtonText">搜索时间段内的航班</span><span aria-hidden="true">→</span></button>
 
-          <div class="source-note"><strong>查询原则：</strong>官网当前查询成功才标记“当前可售”；连接失败不会误判为“无票”。历史人工核验价格只作为明确标注的参考。</div>
+          <div class="source-note"><strong>查询原则：</strong>只显示本次实时查询返回的当前报价；连接失败或官网未返回当前报价时统一显示暂无当前价格，不使用任何历史价格兜底。</div>
           <div id="sourceStatus" class="source-note">等待查询。</div>
         </div>
       </section>
@@ -78,10 +78,10 @@
       </section>
     </main>
 
-    <footer><span>CTB Flights · 白俄留学生机票比价</span><span>版本 v1.0.25 · 独立仓库 / 独立 Cloudflare Pages Functions</span></footer>
+    <footer><span>CTB Flights · 白俄留学生机票比价</span><span>版本 v1.0.26 · 仅实时价格 / 无历史价格兜底</span></footer>
   </div>
-  <script src="./app.js?v=1.0.25" defer></script>
-  <script src="./stability-v1.0.25.js?v=1.0.25" defer></script>
-  <script src="./brand.js?v=1.0.25" defer></script>
+  <script src="./app.js?v=1.0.26" defer></script>
+  <script src="./stability-v1.0.25.js?v=1.0.26" defer></script>
+  <script src="./brand.js?v=1.0.26" defer></script>
 </body>
 </html>
