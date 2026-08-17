@@ -7,7 +7,7 @@
 - `site/`：Cloudflare Pages 静态前端
 - `site/assets/logos/`：项目本地航空公司品牌资源
 - `site/brand.js` / `site/brand.css`：航空公司品牌渲染与布局
-- `site/stability-v1.0.25.js`：前端查询路由层；当前将白航请求送往 CTB Flights 专属 Supabase Edge Function
+- `site/backend-v1.0.27.js`：前端查询路由层；将白航请求送往 CTB Flights 专属 Supabase Edge Function
 - `functions/api/search.js`：Cloudflare Pages Function 备用实现；v1.0.27 起不作为白航主查询出口
 - Supabase 项目 `ctbflights` (`bexiueimgpsboxvdkdsy`)：独立白航实时查询后端
 - Edge Function `flight-live-search`：Belavia RunSearch → SearchResults、X-Token、Cookie、BYN 票价、税费、舱位与行李票价档解析
