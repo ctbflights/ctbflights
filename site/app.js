@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.19';
+  const VERSION = '1.0.26';
   const API_URL = '/api/search';
   const FALLBACK_BYN_CNY = 2.22;
 
@@ -21,20 +21,6 @@
       logo: 'https://webapi.belavia.by/guideStatic/images/carrier/logotype/5830-347fc5d42a1f77f89665a10b8d0d235a.svg',
       official: 'https://en.belavia.by/booking/',
       baggage: '白航行李额度按本次官网票价档返回数据优先显示。'
-    }
-  };
-
-  const VERIFIED_REFERENCES = {
-    'to-minsk|URC_B2|2026-08-31': {
-      amount: 2859.20,
-      currency: 'BYN',
-      bundle: 'Business',
-      service_class: 'Business',
-      booking_class: 'C',
-      available_seats: 2,
-      tax_detail: { base_amount: 2505.00, taxes_amount: 354.20, total_fare_amount: 2859.20, currency: 'BYN' },
-      baggage_text: '手提行李：2×10kg；托运行李：2×32kg。',
-      source: '白航官网人工核验参考'
     }
   };
 
@@ -157,46 +143,65 @@
     return r.json();
   }
 
-  function applyReference(leg){
-    const ref=VERIFIED_REFERENCES[leg.id]; if(!ref) return false;
-    leg.sourceKind='reference'; leg.currentAvailable=null; leg.bestOffer={...ref,current_inventory:false}; leg.offers=[leg.bestOffer];
-    leg.priceCny=ref.currency==='BYN'?ref.amount*state.rate:ref.amount; leg.errorCode=leg.errorCode||'official_query_failed';
-    return true;
+  function clearPrice(leg, code=null){
+    leg.sourceKind=null;
+    leg.currentAvailable=null;
+    leg.availabilitySummary=null;
+    leg.offers=[];
+    leg.bestOffer=null;
+    leg.priceCny=null;
+    if(code) leg.errorCode=code;
   }
 
   function applyResult(leg,r){
-    leg.errorCode=r?.code||r?.error||null; leg.currentAvailable=r?.current_availability??null; leg.availabilitySummary=r?.availability_summary||null;
+    leg.errorCode=r?.code||r?.error||null;
+    leg.currentAvailable=r?.current_availability??null;
+    leg.availabilitySummary=r?.availability_summary||null;
     const offers=Array.isArray(r?.offers)?r.offers.filter(o=>Number.isFinite(Number(o?.amount))).sort((a,b)=>Number(a.amount)-Number(b.amount)):[];
     if(offers.length){
-      leg.sourceKind='official-current'; leg.offers=offers; leg.bestOffer=offers[0]; leg.currentAvailable=true;
-      const c=String(leg.bestOffer.currency||'').toUpperCase(); leg.priceCny=c==='BYN'?Number(leg.bestOffer.amount)*state.rate:Number(leg.bestOffer.amount);
+      leg.sourceKind='official-current';
+      leg.offers=offers;
+      leg.bestOffer=offers[0];
+      leg.currentAvailable=true;
+      const c=String(leg.bestOffer.currency||'').toUpperCase();
+      leg.priceCny=c==='BYN'?Number(leg.bestOffer.amount)*state.rate:Number(leg.bestOffer.amount);
       return;
     }
-    leg.sourceKind=r?.source_kind||null; leg.offers=[]; leg.bestOffer=null; leg.priceCny=null;
-    applyReference(leg);
+    clearPrice(leg,leg.errorCode);
   }
 
   async function queryLegs(legs){
     state.rate=await getBynCnyRate();
     const byId=new Map(legs.map(x=>[x.id,x]));
-    const searches=legs.map(apiItem), chunks=[]; for(let i=0;i<searches.length;i+=8) chunks.push(searches.slice(i,i+8));
+    const searches=legs.map(apiItem), chunks=[];
+    for(let i=0;i<searches.length;i+=8) chunks.push(searches.slice(i,i+8));
     let completed=0;
     for(const chunk of chunks){
       sourceStatus.textContent=`正在查询航空公司数据… ${completed}/${searches.length}`;
       try{
         const data=await queryBatch(chunk);
         const returned=new Set();
-        for(const r of data?.results||[]){const leg=byId.get(r.id);if(leg){applyResult(leg,r);returned.add(r.id);}}
-        for(const s of chunk){if(!returned.has(s.id)){const leg=byId.get(s.id);if(leg){leg.errorCode='missing_result';applyReference(leg);}}}
-      }catch(e){
-        for(const s of chunk){const leg=byId.get(s.id);if(leg){leg.errorCode='api_connection_failed';applyReference(leg);}}
+        for(const r of data?.results||[]){
+          const leg=byId.get(r.id);
+          if(leg){applyResult(leg,r);returned.add(r.id);}
+        }
+        for(const s of chunk){
+          if(!returned.has(s.id)){
+            const leg=byId.get(s.id);
+            if(leg) clearPrice(leg,'missing_result');
+          }
+        }
+      }catch{
+        for(const s of chunk){
+          const leg=byId.get(s.id);
+          if(leg) clearPrice(leg,'api_connection_failed');
+        }
       }
       completed+=chunk.length;
     }
     const official=legs.filter(x=>x.sourceKind==='official-current'&&x.bestOffer).length;
-    const reference=legs.filter(x=>x.sourceKind==='reference').length;
-    const unresolved=legs.filter(x=>!x.bestOffer).length;
-    sourceStatus.textContent=`查询完成：官网当前报价 ${official} 条${reference?` · 官网核验参考 ${reference} 条`:''}${unresolved?` · 暂无当前价格 ${unresolved} 条`:''}。`;
+    const unresolved=legs.length-official;
+    sourceStatus.textContent=`查询完成：官网当前报价 ${official} 条${unresolved?` · 暂无当前价格 ${unresolved} 条`:''}。`;
   }
 
   function buildItems(){
@@ -222,14 +227,12 @@
   function itemStatus(item){
     const legs=item.type==='roundtrip'?[item.outbound,item.inbound]:[item.outbound];
     if(legs.every(l=>l.sourceKind==='official-current'&&l.bestOffer)) return {text:'官网当前价',cls:'current'};
-    if(legs.some(l=>l.sourceKind==='reference')) return {text:'含官网核验参考',cls:'reference'};
     const air=legs[0].variant.airline;
     return air==='CA'?{text:'国航实时价格接口待接入',cls:'unavailable'}:{text:'实时查询连接异常',cls:'unavailable'};
   }
 
   function baggageText(leg){
     const o=leg.bestOffer;
-    if(leg.sourceKind==='reference'&&o?.baggage_text) return o.baggage_text;
     const opts=Array.isArray(o?.baggage_options)?o.baggage_options:[];
     const hits=opts.filter(x=>/baggage|luggage|bag|багаж/i.test(JSON.stringify(x))).slice(0,8);
     if(hits.length){
@@ -251,11 +254,9 @@
       ];
       return `<div class="official-box"><div class="box-title">官网当前可售报价</div>${rows.map(([k,v])=>`<div class="fare-row"><span>${esc(k)}</span><strong${k==='当前余票'?' class="seat-ok"':''}>${esc(v)}</strong></div>`).join('')}</div>`;
     }
-    if(leg.sourceKind==='reference'&&o){
-      const rows=[['人民币参考价',money(leg.priceCny)],['白航原币',`${nativeMoney(o.amount,o.currency)} · 含税`],['基础票价',nativeMoney(o.tax_detail?.base_amount,o.currency)],['税费',nativeMoney(o.tax_detail?.taxes_amount,o.currency)],['核验时舱位',[o.bundle,o.booking_class?`${o.booking_class} 舱`:null].filter(Boolean).join(' · ')],['核验时余票',`${o.available_seats} 席`],['状态说明','当前实时查询失败；以上仅为官网人工核验记录']];
-      return `<div class="reference-box"><div class="box-title">白航官网核验参考</div>${rows.map(([k,v])=>`<div class="fare-row"><span>${esc(k)}</span><strong${k==='核验时余票'?' class="seat-ok"':''}>${esc(v||'—')}</strong></div>`).join('')}</div>`;
-    }
-    const msg=leg.variant.airline==='CA'?'CTB Flights 的国航实时价格接口尚未独立接入；当前不把班表存在误写成“有票”。':'白航官网实时连接本次未返回可售报价；这不等于该航班无票。';
+    const msg=leg.variant.airline==='CA'
+      ?'CTB Flights 的国航实时价格接口尚未独立接入；当前不把班表存在误写成“有票”。'
+      :'白航官网实时连接本次未返回可售报价；这不等于该航班无票。';
     return `<div class="fare-box"><div class="box-title">价格状态</div><div class="fare-row"><span>当前结果</span><strong>${esc(msg)}</strong></div></div>`;
   }
 
@@ -294,14 +295,18 @@
 
   function renderCalendar(items){
     const byDate=new Map();
-    for(const item of items){const old=byDate.get(item.date);if(!old||(Number.isFinite(item.priceCny)&&( !Number.isFinite(old.priceCny)||item.priceCny<old.priceCny)))byDate.set(item.date,item);}
+    for(const item of items){
+      const old=byDate.get(item.date);
+      if(!old||(Number.isFinite(item.priceCny)&&(!Number.isFinite(old.priceCny)||item.priceCny<old.priceCny))) byDate.set(item.date,item);
+    }
     const arr=[...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date));
     const min=Math.min(...arr.filter(x=>Number.isFinite(x.priceCny)).map(x=>x.priceCny),Infinity);
     calendarList.innerHTML=arr.length?arr.map(item=>`<div class="calendar-row${item.priceCny===min?' best':''}"><div class="calendar-date"><strong>${formatDate(item.date)}</strong><small>${week(item.date)}</small></div><div class="calendar-route">${esc(item.type==='roundtrip'?`${item.outbound.variant.city} ⇄ 明斯克`:item.outbound.routeLabel)}<br>${esc(item.outbound.spec.flightNumber)}</div><div class="calendar-price">${Number.isFinite(item.priceCny)?money(item.priceCny):'—'}<small>${itemStatus(item).text}</small></div></div>`).join(''):'<div class="empty">所选时间段没有匹配到计划班期。</div>';
   }
 
   function render(){
-    state.items=buildItems(); const items=sortItems(state.items);
+    state.items=buildItems();
+    const items=sortItems(state.items);
     const prices=items.filter(x=>Number.isFinite(x.priceCny)).map(x=>x.priceCny),best=prices.length?Math.min(...prices):Infinity;
     resultCount.textContent=`${items.length} 个方案`;
     resultTitle.textContent=state.trip==='roundtrip'?'往返航班时间段价格比较':'时间段航班价格比较';
@@ -311,25 +316,57 @@
 
   async function search(){
     if(state.busy||!validate()) return;
-    state.busy=true; searchButton.disabled=true; searchButtonText.textContent='正在查询中…';
-    results.classList.remove('hidden'); flightList.innerHTML='<div class="loading-card"><div class="spinner"></div><strong>正在查询航空公司当前价格…</strong><small>白航通过 CTB Flights 独立 Cloudflare Function 查询；请稍候。</small></div>'; calendarList.innerHTML='';
+    state.busy=true;
+    searchButton.disabled=true;
+    searchButtonText.textContent='正在查询中…';
+    results.classList.remove('hidden');
+    flightList.innerHTML='<div class="loading-card"><div class="spinner"></div><strong>正在查询航空公司当前价格…</strong><small>白航通过 CTB Flights 独立 Cloudflare Function 查询；请稍候。</small></div>';
+    calendarList.innerHTML='';
     const groups=selectedGroups();
     state.outbound=buildLegs(state.direction,startDate.value,endDate.value,groups);
     const reverse=state.direction==='to-minsk'?'from-minsk':'to-minsk';
     state.inbound=state.trip==='roundtrip'?buildLegs(reverse,returnStart.value,returnEnd.value,groups):[];
     const all=[...state.outbound,...state.inbound];
-    if(!all.length){render();sourceStatus.textContent='所选时间段没有匹配到计划班期。';state.busy=false;searchButton.disabled=false;searchButtonText.textContent='搜索时间段内的航班';return;}
-    await queryLegs(all); render();
-    state.busy=false; searchButton.disabled=false; searchButtonText.textContent='搜索时间段内的航班';
+    if(!all.length){
+      render();
+      sourceStatus.textContent='所选时间段没有匹配到计划班期。';
+      state.busy=false;
+      searchButton.disabled=false;
+      searchButtonText.textContent='搜索时间段内的航班';
+      return;
+    }
+    await queryLegs(all);
+    render();
+    state.busy=false;
+    searchButton.disabled=false;
+    searchButtonText.textContent='搜索时间段内的航班';
   }
 
-  document.querySelectorAll('[data-trip]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-trip]').forEach(x=>x.classList.toggle('active',x===btn));state.trip=btn.dataset.trip;returnRange.classList.toggle('hidden',state.trip!=='roundtrip');}));
-  document.querySelectorAll('[data-direction]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-direction]').forEach(x=>x.classList.toggle('active',x===btn));state.direction=btn.dataset.direction;}));
-  $('toggleAll').addEventListener('click',()=>{const boxes=[...cityGrid.querySelectorAll('input')],all=boxes.every(x=>x.checked);boxes.forEach(x=>x.checked=!all);$('toggleAll').textContent=all?'全选':'取消全选';});
-  searchButton.addEventListener('click',search); sortSelect.addEventListener('change',()=>{if(!results.classList.contains('hidden'))render();});
-  flightList.addEventListener('click',e=>{const bag=e.target.closest('.baggage-toggle');if(bag){e.stopPropagation();bag.closest('.baggage-wrap').classList.toggle('open');return;}const summary=e.target.closest('.flight-summary');if(summary)summary.closest('.flight-card').classList.toggle('open');});
+  document.querySelectorAll('[data-trip]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-trip]').forEach(x=>x.classList.toggle('active',x===btn));
+    state.trip=btn.dataset.trip;
+    returnRange.classList.toggle('hidden',state.trip!=='roundtrip');
+  }));
+  document.querySelectorAll('[data-direction]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-direction]').forEach(x=>x.classList.toggle('active',x===btn));
+    state.direction=btn.dataset.direction;
+  }));
+  $('toggleAll').addEventListener('click',()=>{
+    const boxes=[...cityGrid.querySelectorAll('input')],all=boxes.every(x=>x.checked);
+    boxes.forEach(x=>x.checked=!all);
+    $('toggleAll').textContent=all?'全选':'取消全选';
+  });
+  searchButton.addEventListener('click',search);
+  sortSelect.addEventListener('change',()=>{if(!results.classList.contains('hidden'))render();});
+  flightList.addEventListener('click',e=>{
+    const bag=e.target.closest('.baggage-toggle');
+    if(bag){e.stopPropagation();bag.closest('.baggage-wrap').classList.toggle('open');return;}
+    const summary=e.target.closest('.flight-summary');
+    if(summary)summary.closest('.flight-card').classList.toggle('open');
+  });
 
-  renderCities(); initDates();
+  renderCities();
+  initDates();
   document.title=`CTB Flights · 白俄留学生机票比价 · v${VERSION}`;
   document.querySelectorAll('.version').forEach(el=>el.textContent=`v${VERSION}`);
 })();
