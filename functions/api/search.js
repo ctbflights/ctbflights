@@ -46,7 +46,7 @@ export async function onRequest({ request }) {
       status: upstream.status,
       headers: {
         ...JSON_HEADERS,
-        'x-ctb-backend': 'supabase-relay-v1.1.0',
+        'x-ctb-backend': 'supabase-amadeus-relay-v1.1.3',
         'x-ctb-upstream-status': String(upstream.status),
         'x-ctb-elapsed-ms': String(Date.now() - startedAt)
       }
@@ -54,7 +54,7 @@ export async function onRequest({ request }) {
   } catch (error) {
     return json({
       ok: false,
-      version: 'ctbflights-api-1.1.0',
+      version: 'ctbflights-api-1.1.3',
       code: error?.name === 'AbortError' ? 'supabase_timeout' : 'supabase_proxy_failed',
       error: error instanceof Error ? error.message : String(error),
       elapsed_ms: Date.now() - startedAt,
