@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const VERSION = '1.1.5';
+  const VERSION = '1.1.6';
   window.CTB_VERSION = VERSION;
   document.querySelectorAll('[data-version]').forEach(el => { el.textContent = `v${VERSION}`; });
   const baseTitle = document.body?.dataset?.page === 'results'
