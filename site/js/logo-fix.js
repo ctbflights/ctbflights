@@ -27,7 +27,7 @@
 
   async function loadOfficialLocalLogo() {
     try {
-      const response = await fetch('/assets/logos/air-china-black.svg?v=1.1.0', { cache: 'no-store' });
+      const response = await fetch('/assets/logos/air-china-black.svg?v=1.1.1', { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const text = await response.text();
       const match = text.match(/href=["'](data:image\/png;base64,[^"']+)["']/i);
