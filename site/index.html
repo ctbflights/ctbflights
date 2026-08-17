@@ -1,86 +1,88 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0c59cf" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>CTB Flights · 白俄留学生机票比价 · v1.0.28</title>
-  <link rel="stylesheet" href="./styles.css?v=1.0.28" />
-  <link rel="stylesheet" href="./brand.css?v=1.0.28" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7fb">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>CTB Flights</title>
+  <link rel="stylesheet" href="./styles.css?v=1.1.0">
 </head>
-<body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">✈</span><span><strong>CTB Flights</strong><small>China ⇄ Belarus · Student Flight Compare</small></span></div>
-      <span class="version">v1.0.28</span>
-    </header>
+<body data-page="home">
+  <header class="site-header">
+    <a class="site-brand" href="./index.html" aria-label="CTB Flights 首页">
+      <span class="brand-mark">✈</span>
+      <span><strong>CTB Flights</strong><small>China ⇄ Belarus</small></span>
+    </a>
+    <nav class="main-nav" aria-label="主导航">
+      <a class="active" href="./index.html">机票查询</a>
+      <span>价格日历</span>
+      <span>航班筛选</span>
+      <span>帮助中心</span>
+    </nav>
+    <div class="header-actions">
+      <span class="currency-chip">人民币 (CNY)</span>
+      <span class="version-chip" data-version></span>
+    </div>
+  </header>
 
-    <main>
-      <section class="hero">
-        <div>
-          <span class="eyebrow">专供白俄罗斯留学生</span>
-          <h1>在一段时间里，<br />找到真正合适的航班。</h1>
-          <p>白俄罗斯航空通过 CTB Flights 同源查询入口转发到独立 Supabase 实时后端获取官网当前报价；浏览器不再跨域直连 Supabase。人民币主价按 BYN/CNY 汇率换算，原始币种始终保留。</p>
+  <main class="home-main">
+    <section class="home-hero">
+      <div class="hero-copy">
+        <span class="eyebrow">专供白俄罗斯留学生</span>
+        <h1>在一段时间里，<br>找到真正合适的航班。</h1>
+        <p>选择一段出行时间，我们会比较这一时间范围内中国至白俄罗斯的计划航班，并查询当前可获取的实时票价。人民币作为主显示货币，同时保留航空公司返回的原始币种。</p>
+        <div class="hero-points">
+          <span>时间段比价</span><span>直飞 / 经停</span><span>人民币主显示</span>
+        </div>
+      </div>
+
+      <section class="search-card" aria-label="机票搜索条件">
+        <div class="segmented" role="tablist" aria-label="行程类型">
+          <button class="active" data-trip="oneway" type="button">单程</button>
+          <button data-trip="roundtrip" type="button">往返</button>
         </div>
 
-        <div class="search-card" aria-label="航班搜索">
-          <div class="segmented" role="tablist" aria-label="行程类型">
-            <button class="active" data-trip="oneway" type="button">单程</button>
-            <button data-trip="roundtrip" type="button">往返</button>
-          </div>
-          <div class="direction-tabs" role="tablist" aria-label="出发方向">
-            <button class="active" data-direction="to-minsk" type="button">中国 → 明斯克</button>
-            <button data-direction="from-minsk" type="button">明斯克 → 中国</button>
-          </div>
-
-          <div class="range">
-            <div class="range-label"><span class="step">1</span><strong>去程时间范围</strong></div>
-            <div class="date-grid">
-              <label><span>最早出发</span><input id="startDate" type="date" /></label>
-              <div class="date-arrow">→</div>
-              <label><span>最晚出发</span><input id="endDate" type="date" /></label>
-            </div>
-          </div>
-
-          <div id="returnRange" class="range hidden">
-            <div class="range-label"><span class="step">2</span><strong>返程时间范围</strong></div>
-            <div class="date-grid">
-              <label><span>最早返程</span><input id="returnStartDate" type="date" /></label>
-              <div class="date-arrow">→</div>
-              <label><span>最晚返程</span><input id="returnEndDate" type="date" /></label>
-            </div>
-          </div>
-
-          <div class="city-block">
-            <div class="field-head"><span>比较哪些中国城市？</span><button id="toggleAll" class="text-btn" type="button">取消全选</button></div>
-            <div id="cityGrid" class="city-grid"></div>
-          </div>
-
-          <button id="searchButton" class="search-btn" type="button"><span id="searchButtonText">搜索时间段内的航班</span><span aria-hidden="true">→</span></button>
-
-          <div class="source-note"><strong>查询原则：</strong>只显示本次实时查询返回的当前报价；连接失败或官网未返回当前报价时统一显示暂无当前价格，不使用任何历史价格兜底。</div>
-          <div id="sourceStatus" class="source-note">等待查询。</div>
+        <div class="segmented direction-segment" role="tablist" aria-label="飞行方向">
+          <button class="active" data-direction="to-minsk" type="button">中国 → 明斯克</button>
+          <button data-direction="from-minsk" type="button">明斯克 → 中国</button>
         </div>
+
+        <div class="form-section">
+          <div class="section-title"><span class="step">1</span><strong>去程时间范围</strong></div>
+          <div class="date-grid">
+            <label><span>最早出发</span><input id="startDate" type="date"></label>
+            <div class="date-arrow">→</div>
+            <label><span>最晚出发</span><input id="endDate" type="date"></label>
+          </div>
+        </div>
+
+        <div id="returnRange" class="form-section hidden">
+          <div class="section-title"><span class="step">2</span><strong>返程时间范围</strong></div>
+          <div class="date-grid">
+            <label><span>最早返程</span><input id="returnStartDate" type="date"></label>
+            <div class="date-arrow">→</div>
+            <label><span>最晚返程</span><input id="returnEndDate" type="date"></label>
+          </div>
+        </div>
+
+        <div class="form-section city-section">
+          <div class="field-head"><strong>比较哪些中国城市？</strong><button id="toggleAll" class="link-button" type="button">取消全选</button></div>
+          <div id="cityGrid" class="city-grid"></div>
+        </div>
+
+        <button id="searchButton" class="primary-search" type="button">
+          <span id="searchButtonText">搜索时间段内的航班</span><span>→</span>
+        </button>
+        <p class="search-note">只显示本次实时查询返回的当前报价；连接失败或航空公司未返回当前报价时，不使用历史价格兜底。</p>
       </section>
+    </section>
+  </main>
 
-      <section id="results" class="results hidden" aria-live="polite">
-        <div class="results-head">
-          <div><span class="eyebrow">搜索结果</span><h2 id="resultTitle">时间段航班价格比较</h2></div>
-          <div class="sort"><label for="sortSelect">排序</label><select id="sortSelect"><option value="price">人民币价格最低</option><option value="date">去程最早</option><option value="duration">总时长最短</option></select></div>
-        </div>
-        <div class="result-grid">
-          <section class="panel calendar-panel"><div class="panel-head"><div><span class="eyebrow">日期视角</span><h3>价格日历</h3></div></div><div id="calendarList" class="calendar-list"></div></section>
-          <section class="panel flights-panel"><div class="panel-head"><div><span class="eyebrow">快速比价</span><h3>航班横向比较</h3></div><span id="resultCount" class="count"></span></div><div id="flightList" class="flight-list"></div></section>
-        </div>
-      </section>
-    </main>
+  <footer class="site-footer"><span>CTB Flights · 白俄留学生机票比价</span><span data-version></span></footer>
 
-    <footer><span>CTB Flights · 白俄留学生机票比价</span><span>版本 v1.0.28 · 同源 API 转发至独立 Supabase 白航实时后端 / 无历史价格兜底</span></footer>
-  </div>
-  <script src="./app.js?v=1.0.28" defer></script>
-  <script src="./brand.js?v=1.0.28" defer></script>
+  <script src="./js/flight-data.js?v=1.1.0" defer></script>
+  <script src="./js/home.js?v=1.1.0" defer></script>
+  <script src="./js/version.js?v=1.1.0" defer></script>
 </body>
 </html>
