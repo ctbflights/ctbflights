@@ -2,27 +2,42 @@
 
 专供中国往返白俄罗斯留学生的机票时间段比价项目。
 
-## 项目结构
+## 当前版本
 
-- `site/`：Cloudflare Pages 静态前端
-- `site/assets/logos/`：项目本地航空公司品牌资源
-- `site/brand.js` / `site/brand.css`：航空公司品牌渲染与布局
-- `functions/api/search.js`：浏览器同源 `/api/search` 入口，只负责把查询安全转发到 CTB Flights 专属 Supabase Edge Function
-- Supabase 项目 `ctbflights` (`bexiueimgpsboxvdkdsy`)：独立白航实时查询后端
-- Edge Function `flight-live-search`：Belavia RunSearch → SearchResults、X-Token、Cookie、BYN 票价、税费、舱位与行李票价档解析
+`v1.1.0`
 
-## v1.0.28
+## 页面结构
 
-- 修复浏览器直连 Supabase 时 CORS 预检 `OPTIONS 500` 导致真正 POST 根本无法发出的故障。
-- 浏览器不再跨域直连 Supabase；统一请求同源 `/api/search`。
-- Cloudflare Pages Function 不再直接访问白航官网，只负责把查询转发到 CTB Flights 专属 Supabase Edge Function。
-- Supabase Edge Function 继续保持 JWT 校验开启。
-- 删除 `site/backend-v1.0.27.js` 浏览器 fetch 拦截层，避免重复路由与 CORS 问题。
-- `index.html`、`app.js`、`brand.js` 版本统一为 `v1.0.28`。
-- 国航和白航默认 Logo 均使用项目本地资源。
-- 前端只接受本次实时查询返回的当前报价；不使用任何历史价格、人工核验价格或静态价格兜底。
-- 国航实时价格源尚未可靠接通前不伪造当前价格。
-- 食光项目、食光 Supabase 和旧食光 Worker 均不参与 CTB Flights 当前查询链路。
+- `site/index.html`：一级页面，仅负责搜索条件
+- `site/results.html`：二级结果页，显示价格日历与航班横向比较
+- `site/js/version.js`：全站唯一运行时版本号来源
+- `site/js/flight-data.js`：航班班期与航空公司基础数据
+- `site/js/home.js`：首页搜索与 URL 参数跳转
+- `site/js/results.js`：结果页实时查询、价格计算与 UI 渲染
+- `site/assets/logos/`：本地航空公司 Logo
+
+## 实时查询链路
+
+浏览器只请求同源 `/api/search`：
+
+`results.html → /api/search → Cloudflare Pages Function → CTB Flights Supabase Edge Function → Belavia GraphQL`
+
+- Cloudflare Pages Function 只做请求校验和转发，不直接访问 Belavia。
+- Supabase 项目：`ctbflights` (`bexiueimgpsboxvdkdsy`)
+- Edge Function：`flight-live-search`
+- v1.1.0 起使用现代 Supabase publishable key；旧平台 `verify_jwt` 网关检查关闭，Edge Function 内部自行校验 `apikey`。
+- 白航只显示本次查询实际返回的当前报价，不使用历史价格、人工核验价或静态票价兜底。
+- 国航实时票价源未可靠接通前不伪造当前价格。
+
+## v1.1.0 主要变化
+
+- 首页与结果页彻底拆分为两级页面。
+- 点击“搜索时间段内的航班”后，通过 URL 参数跳转到独立结果页，搜索条件可分享、可刷新恢复。
+- 结果页采用“左侧价格日历 + 右侧航班横向比较”的桌面布局，并提供移动端响应式布局。
+- 删除旧 `app.js`、`brand.js`、`brand.css` 单页运行时代码，避免旧版本覆盖新页面。
+- 版本号统一由 `site/js/version.js` 管理。
+- 修复 Supabase 新 API key 与旧 JWT 网关不兼容导致的 `UNAUTHORIZED_LEGACY_JWT`。
+- 删除全部历史核验/参考价兜底逻辑。
 
 ## Cloudflare Pages 部署
 
@@ -31,7 +46,3 @@
 - Build command: `exit 0`
 - Build output directory: `site`
 - Root directory: 留空
-
-## 版本
-
-当前：`v1.0.28`
