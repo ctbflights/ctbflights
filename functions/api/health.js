@@ -9,7 +9,7 @@ export async function onRequestGet({ env }) {
       ok: false,
       provider: 'ignav',
       configured: false,
-      version: '1.1.5'
+      version: '1.1.6'
     }), { status: 503, headers });
   }
 
@@ -46,7 +46,7 @@ export async function onRequestGet({ env }) {
       itinerary_count: Array.isArray(data?.itineraries) ? data.itineraries.length : null,
       upstream_error: upstream.ok ? null : data?.error || null,
       elapsed_ms: Date.now() - startedAt,
-      version: '1.1.5'
+      version: '1.1.6'
     }), { status: upstream.ok ? 200 : 502, headers });
   } catch (error) {
     return new Response(JSON.stringify({
@@ -56,7 +56,7 @@ export async function onRequestGet({ env }) {
       code:error?.name==='AbortError'?'ignav_timeout':'ignav_transport_failed',
       error:error instanceof Error?error.message:String(error),
       elapsed_ms:Date.now()-startedAt,
-      version:'1.1.5'
+      version:'1.1.6'
     }), { status:502, headers });
   } finally {
     clearTimeout(timeout);
