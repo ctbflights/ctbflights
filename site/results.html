@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7fb">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>CTB Flights · 时间段航班价格比较</title>
+  <link rel="stylesheet" href="./styles.css?v=1.1.0">
+</head>
+<body data-page="results">
+  <header class="site-header">
+    <a class="site-brand" href="./index.html"><span class="brand-mark">✈</span><span><strong>CTB Flights</strong><small>China ⇄ Belarus</small></span></a>
+    <nav class="main-nav" aria-label="主导航">
+      <a class="active" href="./index.html">机票查询</a>
+      <a href="#calendarPanel">价格日历</a>
+      <a href="#flightPanel">航班筛选</a>
+      <span>帮助中心</span>
+    </nav>
+    <div class="header-actions"><span class="currency-chip">人民币 (CNY)</span><span class="version-chip" data-version></span></div>
+  </header>
+
+  <main class="results-main">
+    <section class="results-intro">
+      <div>
+        <span class="eyebrow">搜索结果</span>
+        <h1>时间段航班价格比较</h1>
+        <p id="searchSummary">正在读取搜索条件…</p>
+      </div>
+      <div class="results-tools">
+        <a id="editSearch" class="secondary-button" href="./index.html">修改搜索</a>
+        <label class="sort-control">排序
+          <select id="sortSelect">
+            <option value="price">人民币价格最低</option>
+            <option value="date">出发日期最早</option>
+            <option value="duration">总时长最短</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <div id="queryStatus" class="query-status"><span class="status-dot"></span>正在准备查询…</div>
+
+    <section class="comparison-grid">
+      <aside id="calendarPanel" class="panel calendar-panel">
+        <div class="panel-title"><div><span class="eyebrow">日期视角</span><h2>价格日历</h2></div></div>
+        <div id="calendarList" class="calendar-list"><div class="skeleton stack"></div></div>
+      </aside>
+
+      <section id="flightPanel" class="panel flight-panel">
+        <div class="panel-title">
+          <div><span class="eyebrow">快速比价</span><h2>航班横向比较</h2></div>
+          <span id="resultCount" class="result-count">—</span>
+        </div>
+        <div id="flightList" class="flight-list">
+          <div class="loading-card"><div class="spinner"></div><strong>正在查询航空公司当前价格…</strong><small>我们会逐批返回结果，单个航班失败不会拖累整批查询。</small></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer"><span>CTB Flights · 白俄留学生机票比价</span><span data-version></span></footer>
+
+  <script src="./js/flight-data.js?v=1.1.0" defer></script>
+  <script src="./js/results.js?v=1.1.0" defer></script>
+  <script src="./js/version.js?v=1.1.0" defer></script>
+</body>
+</html>
